@@ -1,0 +1,5 @@
+Add tests for the :mod:`cProfile` module's command-line interface to
+``Lib/test/test_profiling/test_tracing_profiler.py``, covering
+``--help``, ``-s``/``--sort`` (valid key), ``-o``/``--outfile``,
+``-m`` (module mode), missing module error, ``-m`` without argument,
+and no-argument usage.

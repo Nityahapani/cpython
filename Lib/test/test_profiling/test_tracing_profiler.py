@@ -1,5 +1,6 @@
 """Test suite for the cProfile module."""
 import multiprocessing
+import os
 import sys
 import unittest
 
@@ -196,6 +197,69 @@ class CProfileTest(ProfileTest):
 
 
 class TestCommandLine(unittest.TestCase):
+    def test_no_args_prints_usage(self):
+        # Running with no arguments should print usage and exit with code 2
+        rc, out, err = assert_python_failure('-m', 'cProfile')
+        self.assertEqual(rc, 2)
+
+    def test_help(self):
+        # -h / --help should print usage and exit with code 0
+        rc, out, err = assert_python_ok('-m', 'cProfile', '-h')
+        self.assertEqual(rc, 0)
+        self.assertIn(b'cProfile', out)
+
+    def test_profile_module(self):
+        # -m flag should profile a library module successfully
+        rc, out, err = assert_python_ok('-m', 'cProfile', '-m', 'timeit', '-n', '1')
+        self.assertEqual(rc, 0)
+
+    def test_profile_module_missing(self):
+        # -m with a non-existent module should fail
+        rc, out, err = assert_python_failure(
+            '-m', 'cProfile', '-m', 'nonexistent_module_xyz'
+        )
+        self.assertNotEqual(rc, 0)
+
+    def test_m_flag_requires_argument(self):
+        # -m alone without a module name should fail
+        rc, out, err = assert_python_failure('-m', 'cProfile', '-m')
+        self.assertNotEqual(rc, 0)
+
+    def test_output_file(self):
+        # -o / --outfile should write a valid pstats file
+        with tempfile.NamedTemporaryFile('w', suffix='.py',
+                                         delete_on_close=False) as script:
+            script.write('x = 1 + 1\n')
+            script.close()
+            with tempfile.NamedTemporaryFile(suffix='.pstats',
+                                              delete=False) as out_f:
+                out_f.close()
+                try:
+                    rc, out, err = assert_python_ok(
+                        '-m', 'cProfile', '-o', out_f.name, script.name
+                    )
+                    self.assertEqual(rc, 0)
+                    import pstats as _pstats
+                    stats = _pstats.Stats(out_f.name)
+                    self.assertIsNotNone(stats)
+                finally:
+                    os.unlink(out_f.name)
+                    os.unlink(script.name)
+
+    def test_sort_valid(self):
+        # -s with a valid sort key should succeed
+        with tempfile.NamedTemporaryFile('w', suffix='.py',
+                                         delete_on_close=False) as script:
+            script.write('x = 1 + 1\n')
+            script.close()
+            try:
+                rc, out, err = assert_python_ok(
+                    '-m', 'cProfile', '-s', 'cumulative', script.name
+                )
+                self.assertEqual(rc, 0)
+            finally:
+                os.unlink(script.name)
+
     def test_sort(self):
         rc, out, err = assert_python_failure('-m', 'cProfile', '-s', 'demo')
         self.assertGreater(rc, 0)
